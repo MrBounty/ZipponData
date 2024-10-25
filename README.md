@@ -4,23 +4,29 @@ ZipponData is a library developped in the context of ZipponDB.
 
 The library intent to create a simple way to store data and parse data from a file in the most efficient way possible. 
 
-There is 8 data type available in ZipponData;
-- int: A 32 bit integer saved as 4*u8
-- float: A 64 bit floating point saved as 8*u8
-- bool: A boolean saved as one u8
-- str: A string saved as one integer for the lenght of the string then the string. So 4*u8 + len * u8
-- uuid: A UUID saved as 16*u8
-- date: A date saved with 2 * u8 for years, one u8 for the month and one u8 for the day. End up as 4*u8
-- time: A time with ms between 0 and 999. Saved with one u8 for hours, one u8 for minutes, 6 bits for seconds and 10 bits for ms. End up as 4*u8
-- datetime: A date and a time. As a 8*u8
+There is 8 data type available in ZipponData:
+
+| Type | Zig type | Bytes in file |
+| --- | --- | --- |
+| int | i32 | 4 |
+| float | f64 | 8 |
+| bool | bool | 1 |
+| str | []u8 | 4 + len |
+| uuid | [16]u8 | 16 |
+| date | custom | 4 |
+| time | custom | 4 |
+| datetime | custom | 8 |
 
 ## Quickstart
 
 1. Create a file with `createFile`
 2. Create some `Data`
-3. Save it to a file with `writeData`
-4. Iterate over a file with `iterateData`
-5. Delete the file with `deleteFile`
+3. Create a `DataWriter`
+4. Write the data to a file
+5. Create a schema
+6. Create an iterator with `DataIterator`
+7. Iterate over all value
+8. Delete the file with `deleteFile`
 
 Here an example of how to use it:
 ```zig
@@ -32,6 +38,10 @@ pub fn main() anyerror!void {
     try std.fs.cwd().makeDir("tmp");
     const dir = try std.fs.cwd().openDir("tmp", .{});
 
+    // 1. Create a file
+    try createFile("test", dir);
+
+    // 2. Create some Data
     const data = [_]Data{
         Data.initInt(1),
         Data.initFloat(3.14159),
@@ -43,10 +53,11 @@ pub fn main() anyerror!void {
         Data.initDateTime("2021/01/01-12:42:09.812"),
     };
 
-    try createFile("test", dir);
-
+    // 3. Create a DataWriter
     var dwriter = try DataWriter.init("test", dir);
     defer dwriter.deinit(); // This just close the file
+
+    // 4. Write some data
     try dwriter.write(&data);
     try dwriter.write(&data);
     try dwriter.write(&data);
@@ -55,6 +66,7 @@ pub fn main() anyerror!void {
     try dwriter.write(&data);
     try dwriter.flush(); // Dont forget to flush !
 
+    // 5. Create a schema
     // A schema is how the data is organised in the file and how the iterator will parse it. If you are wrong here, it will return wrong/random data
     const schema = &[_]DType{
         .Int,
@@ -66,19 +78,25 @@ pub fn main() anyerror!void {
         .Time,
         .DateTime,
     };
-    var iter = try iterateData(allocator, "test", dir, schema);
+
+    // 6. Create a DataIterator
+    var iter = try DataIterator.init(allocator, "test", dir, schema);
     defer iter.deinit();
 
+    // 7. Iterate over data
     while (try iter.next()) |row| {
         std.debug.print("Row {d}: {any}\n", .{ row });
     }
 
+    // 8. Delete the file (Optional ofc)
     try deleteFile("test", dir);
     try std.fs.cwd().deleteDir("tmp");
 }
 ```
 
 # Benchmark
+
+Done on a AMD Ryzen 7 7800X3D.
 
 | Rows | Write Time (ms) | Average Write Time (μs) | Read Time (ms) | Average Read Time (μs) | File Size (B) |
 | --- | --- | --- | --- | --- | --- |
@@ -90,7 +108,7 @@ pub fn main() anyerror!void {
 | 100000    | 36.396625     | 0.36  | 57.348992     | 0.57  | 4800000   |
 | 1000000   | 361.419023    | 0.36  | 566.124408    | 0.57  | 48000000  |
 
-Speed to write and read this data:
+Data use:
 ```zig
 const schema = &[_]DType{
     .Int,
@@ -127,7 +145,3 @@ TODO
 You can't update the file. You gonna need to implement that yourself. The easier way (and only I know), is to parse the entier file and write it into another.
 
 I will give an example of how I do it.
-
-# API
-
-TODO: Detailled API
