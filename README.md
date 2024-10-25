@@ -1,6 +1,6 @@
 # ZipponData
 
-ZipponData is a library developped in the context of ZipponDB.
+ZipponData is a library developped in the context of [ZipponDB](https://github.com/MrBounty/ZipponDB/tree/v0.1.3).
 
 The library intent to create a simple way to store data and parse data from a file in the most efficient way possible. 
 
