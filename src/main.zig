@@ -412,3 +412,83 @@ fn benchmark(allocator: std.mem.Allocator, schema: []const DType, data: []const 
         std.debug.print("\n", .{});
     }
 }
+
+test "Benchmark Type" {
+    const allocator = std.testing.allocator;
+
+    const random = std.crypto.random;
+    const uuid = [16]u8{
+        random.int(u8),
+        random.int(u8),
+        random.int(u8),
+        random.int(u8),
+        random.int(u8),
+        random.int(u8),
+        random.int(u8),
+        random.int(u8),
+        random.int(u8),
+        random.int(u8),
+        random.int(u8),
+        random.int(u8),
+        random.int(u8),
+        random.int(u8),
+        random.int(u8),
+        random.int(u8),
+    };
+
+    try benchmarkType(allocator, .Int, Data.initInt(random.int(i32)));
+    try benchmarkType(allocator, .Float, Data.initFloat(random.float(f64)));
+    try benchmarkType(allocator, .Bool, Data.initBool(random.boolean()));
+    try benchmarkType(allocator, .Str, Data.initStr("Hello world"));
+    try benchmarkType(allocator, .UUID, Data.initUUID(uuid));
+    try benchmarkType(allocator, .Date, Data.initDate(random.int(u16), random.int(u8), random.int(u8)));
+    try benchmarkType(allocator, .Time, Data.initTime(random.int(u8), random.int(u8), random.int(u6), random.int(u10)));
+    try benchmarkType(allocator, .DateTime, Data.initDateTime(random.int(u16), random.int(u8), random.int(u8), random.int(u8), random.int(u8), random.int(u6), random.int(u10)));
+}
+
+fn benchmarkType(allocator: std.mem.Allocator, dtype: DType, data: Data) !void {
+    const size = 1_000_000;
+
+    try std.fs.cwd().makeDir("benchmark_type_tmp");
+    const dir = try std.fs.cwd().openDir("benchmark_type_tmp", .{});
+    defer std.fs.cwd().deleteDir("benchmark_type_tmp") catch {};
+
+    std.debug.print("\nBenchmarking with {any} rows:\n", .{dtype});
+
+    // Benchmark write
+    const write_start = std.time.nanoTimestamp();
+    try createFile("benchmark", dir);
+
+    const datas = &[_]Data{data};
+
+    var dwriter = try DataWriter.init("benchmark", dir);
+    defer dwriter.deinit();
+    for (0..size) |_| try dwriter.write(datas);
+    try dwriter.flush();
+    const write_end = std.time.nanoTimestamp();
+    const write_duration = @as(f64, @floatFromInt(write_end - write_start)) / 1e6;
+
+    std.debug.print("Write time: {d:.6} ms\n", .{write_duration});
+
+    const schema = &[_]DType{dtype};
+
+    // Benchmark read
+    const read_start = std.time.nanoTimestamp();
+    var iter = try DataIterator.init(allocator, "benchmark", dir, schema);
+    defer iter.deinit();
+
+    var count: usize = 0;
+    while (try iter.next()) |_| {
+        count += 1;
+    }
+    const read_end = std.time.nanoTimestamp();
+    const read_duration = @as(f64, @floatFromInt(read_end - read_start)) / 1e6;
+
+    std.debug.print("Read time: {d:.6} ms\n", .{read_duration});
+    try std.testing.expectEqual(count, size);
+
+    std.debug.print("{any}", .{statFile("benchmark", dir)});
+
+    try deleteFile("benchmark", dir);
+    std.debug.print("\n", .{});
+}
