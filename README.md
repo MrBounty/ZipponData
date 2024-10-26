@@ -22,7 +22,7 @@ There is 8 data type available in ZipponData:
 1. Create a file with `createFile`
 2. Create some `Data`
 3. Create a `DataWriter`
-4. Write the data to a file
+4. Write the data
 5. Create a schema
 6. Create an iterator with `DataIterator`
 7. Iterate over all value
@@ -32,9 +32,10 @@ Here an example of how to use it:
 ```zig
 const std = @import("std");
 
-pub fn main() anyerror!void {
+pub fn main() !void {
     const allocator = std.testing.allocator;
 
+    // 0. Make a temporary directory
     try std.fs.cwd().makeDir("tmp");
     const dir = try std.fs.cwd().openDir("tmp", .{});
 
@@ -67,7 +68,8 @@ pub fn main() anyerror!void {
     try dwriter.flush(); // Dont forget to flush !
 
     // 5. Create a schema
-    // A schema is how the data is organised in the file and how the iterator will parse it. If you are wrong here, it will return wrong/random data
+    // A schema is how  the iterator will parse the file. 
+    // If you are wrong here, it will return wrong/random data
     const schema = &[_]DType{
         .Int,
         .Float,
@@ -93,6 +95,8 @@ pub fn main() anyerror!void {
     try std.fs.cwd().deleteDir("tmp");
 }
 ```
+
+***Note: The dir can be null and it will use cwd.***
 
 # Benchmark
 
@@ -147,3 +151,12 @@ TODO
 You can't update the file. You gonna need to implement that yourself. The easier way (and only I know), is to parse the entier file and write it into another.
 
 I will give an example of how I do it.
+
+# Potential update
+
+I don't plan do update this but it will depend if my other project need it.
+
+- Functions to update files
+- Add a header with the data type at the beguinning of the file so no need to make a schema and I can check everytime I write id it's in the good format 
+- More type
+- Multi threading
