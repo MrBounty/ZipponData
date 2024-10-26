@@ -144,7 +144,44 @@ So it should be fairly fast.
 
 # Importing the package
 
-TODO
+Create a `build.zig.zon` next to `build.zig` if not already done.
+
+Add this dependencies in `build.zig.zon`:
+```zig
+.ZipponData = .{
+    .url = "git+https://github.com/MrBounty/ZipponData",
+    .hash = "1220dde92789a0763c68461bf9140f4ceb19e1a1af297e4f0bedd85ebec86d25f85d",
+},
+```
+
+Here what my complete `build.zig.zon` is for my project ZipponDB:
+```zig
+.{
+    .name = "ZipponDB",
+    .version = "0.1.4",
+    .dependencies = .{
+        .ZipponData = .{
+            .url = "git+https://github.com/MrBounty/ZipponData",
+            .hash = "1220dde92789a0763c68461bf9140f4ceb19e1a1af297e4f0bedd85ebec86d25f85d",
+        },
+    },
+    .paths = .{
+        "",
+    },
+}
+```
+
+And in `build.zig` you can import the module like this:
+```zig
+const zid = b.dependency("ZipponData", .{});
+exe.root_module.addImport("ZipponData", zid.module("ZipponData"));
+```
+
+And you can now import it like std in your project:
+```zig
+const zid = @import("ZipponData");
+zid.createFile("Hello.zid", null);
+```
 
 ## What you can't do
 
