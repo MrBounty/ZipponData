@@ -13,6 +13,24 @@ pub const DType = enum {
     Time,
     DateTime,
 
+    // I dont really like that there is a sperate function but ok
+    // I had to do that so I can pass a second argument
+    pub fn readStr(_: DType, reader: anytype, str_index: *usize) !Data {
+        // Read the length of the string
+        var len_buffer: [4]u8 = undefined;
+        _ = try reader.readAtLeast(len_buffer[0..], 4);
+        const len = @as(usize, @intCast(std.mem.bytesToValue(u32, &len_buffer)));
+
+        if ((str_index.* + len) > string_buffer.len) return error.BufferFull;
+
+        // Read the string
+        _ = try reader.readAtLeast(string_buffer[str_index.*..(str_index.* + len)], len);
+        const data = Data{ .Str = string_buffer[str_index.*..(str_index.* + len)] };
+
+        str_index.* += len;
+        return data;
+    }
+
     pub fn read(self: DType, reader: anytype) !Data {
         switch (self) {
             .Int => {
@@ -25,16 +43,7 @@ pub const DType = enum {
                 _ = try reader.readAtLeast(buffer[0..], 8);
                 return Data{ .Float = std.mem.bytesToValue(f64, &buffer) };
             },
-            .Str => {
-                // Read the length of the string
-                var len_buffer: [4]u8 = undefined;
-                _ = try reader.readAtLeast(len_buffer[0..], 4);
-                const len = std.mem.bytesToValue(u32, &len_buffer);
-
-                // Read the string
-                _ = try reader.readAtLeast(string_buffer[0..len], len);
-                return Data{ .Str = string_buffer[0..len] };
-            },
+            .Str => unreachable,
             .Bool => {
                 var buffer: [@sizeOf(bool)]u8 = undefined;
                 _ = try reader.readAtLeast(buffer[0..], 1);
@@ -192,6 +201,7 @@ pub const DataIterator = struct {
 
     index: usize = 0,
     file_len: usize,
+    str_index: usize = 0,
 
     pub fn init(allocator: std.mem.Allocator, name: []const u8, dir: ?std.fs.Dir, schema: []const DType) !DataIterator {
         const d_ = dir orelse std.fs.cwd();
@@ -213,12 +223,15 @@ pub const DataIterator = struct {
     }
 
     pub fn next(self: *DataIterator) !?[]Data {
+        self.str_index = 0;
         if (self.index >= self.file_len) return null;
 
         var i: usize = 0;
         while (i < self.schema.len) : (i += 1) {
-            const d = self.schema[i].read(self.reader.reader()) catch return null;
-            self.data[i] = d;
+            self.data[i] = switch (self.schema[i]) {
+                .Str => self.schema[i].readStr(self.reader.reader(), &self.str_index) catch return null,
+                else => self.schema[i].read(self.reader.reader()) catch return null,
+            };
             self.index += self.data[i].size();
         }
 
@@ -285,6 +298,7 @@ test "Write and Read" {
         Data.initDate(2021, 1, 1),
         Data.initTime(12, 42, 9, 812),
         Data.initDateTime(2021, 1, 1, 12, 42, 9, 812),
+        Data.initStr("Another string =)"),
     };
 
     try createFile("test", dir);
@@ -303,6 +317,7 @@ test "Write and Read" {
         .Date,
         .Time,
         .DateTime,
+        .Str,
     };
     var iter = try DataIterator.init(allocator, "test", dir, schema);
     defer iter.deinit();
@@ -330,6 +345,8 @@ test "Write and Read" {
         try std.testing.expectEqual(row[7].DateTime.minute, 42);
         try std.testing.expectEqual(row[7].DateTime.second, 9);
         try std.testing.expectEqual(row[7].DateTime.millisecond, 812);
+
+        try std.testing.expectEqualStrings(row[8].Str, "Another string =)");
     } else {
         return error.TestUnexpectedNull;
     }
