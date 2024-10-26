@@ -150,7 +150,7 @@ Add this dependencies in `build.zig.zon`:
 ```zig
 .ZipponData = .{
     .url = "git+https://github.com/MrBounty/ZipponData",
-    .hash = "1220dde92789a0763c68461bf9140f4ceb19e1a1af297e4f0bedd85ebec86d25f85d",
+    .hash = "12200f2c24233d72c195c1daf04d07f3af22418593f7bbe8a75e54fe6817866f4564",
 },
 ```
 
@@ -162,7 +162,7 @@ Here what my complete `build.zig.zon` is for my project ZipponDB:
     .dependencies = .{
         .ZipponData = .{
             .url = "git+https://github.com/MrBounty/ZipponData",
-            .hash = "1220dde92789a0763c68461bf9140f4ceb19e1a1af297e4f0bedd85ebec86d25f85d",
+            .hash = "12200f2c24233d72c195c1daf04d07f3af22418593f7bbe8a75e54fe6817866f4564",
         },
     },
     .paths = .{
