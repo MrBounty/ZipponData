@@ -2,7 +2,7 @@
 
 ZipponData is a library developped in the context of [ZipponDB](https://github.com/MrBounty/ZipponDB/tree/v0.1.3).
 
-The library intent to create a simple way to store data and parse data from a file in the most efficient way possible. 
+The library intent to create a simple way to store and parse data from a file in the most efficient and fast way possible. 
 
 There is 8 data type available in ZipponData:
 
@@ -96,17 +96,19 @@ pub fn main() anyerror!void {
 
 # Benchmark
 
-Done on a AMD Ryzen 7 7800X3D.
+Done on a AMD Ryzen 7 7800X3D with a Samsung SSD 980 PRO 2TB (up to 7,000/5,100MB/s for read/write speed).
 
-| Rows | Write Time (ms) | Average Write Time (μs) | Read Time (ms) | Average Read Time (μs) | File Size (B) |
+| Rows | Write Time (ms) | Average Write Time (μs) | Read Time (ms) | Average Read Time (μs) | File Size (kB) |
 | --- | --- | --- | --- | --- | --- |
-| 1         | 0.013630      | 13.63 | 0.013410      | 13.41 | 48        |
-| 10        | 0.016930      | 1.69  | 0.018460      | 1.85  | 480       |
-| 100       | 0.048750      | 0.49  | 0.067409      | 0.67  | 4800      |
-| 1000      | 0.380299      | 0.38  | 0.638688      | 0.64  | 48000     |
-| 10000     | 3.666838      | 0.37  | 5.691091      | 0.57  | 480000    |
-| 100000    | 36.396625     | 0.36  | 57.348992     | 0.57  | 4800000   |
-| 1000000   | 361.419023    | 0.36  | 566.124408    | 0.57  | 48000000  |
+| 1         | 0.01      | 13.63 | 0.01      | 13.41 | 0.048 |
+| 10        | 0.01      | 1.69  | 0.02      | 1.85  | 0.48  |
+| 100       | 0.04      | 0.49  | 0.07      | 0.67  | 4.8   |
+| 1000      | 0.38      | 0.38  | 0.64      | 0.64  | 48    |
+| 10000     | 3.66      | 0.37  | 5.69      | 0.57  | 480   |
+| 100000    | 36.39     | 0.36  | 57.35     | 0.57  | 4800  |
+| 1000000   | 361.41    | 0.36  | 566.12    | 0.57  | 48000 |
+
+TODO: Benchmark on my laptop and maybe on some cloud VM.
 
 Data use:
 ```zig
