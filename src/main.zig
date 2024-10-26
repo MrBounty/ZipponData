@@ -82,7 +82,7 @@ pub const DType = enum {
     }
 };
 
-const Data = union(DType) {
+pub const Data = union(DType) {
     Int: i32,
     Float: f64,
     Str: []const u8,
@@ -182,7 +182,7 @@ const Data = union(DType) {
     }
 };
 
-const DataIterator = struct {
+pub const DataIterator = struct {
     allocator: std.mem.Allocator,
     file: std.fs.File,
     reader: std.io.BufferedReader(4096, std.fs.File.Reader),
@@ -226,7 +226,7 @@ const DataIterator = struct {
     }
 };
 
-const DataWriter = struct {
+pub const DataWriter = struct {
     file: std.fs.File,
     writer: std.io.BufferedWriter(4096, std.fs.File.Writer),
 
