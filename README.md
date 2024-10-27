@@ -49,9 +49,9 @@ pub fn main() !void {
         Data.initInt(-5),
         Data.initStr("Hello world"),
         Data.initBool(true),
-        Data.initDate("2021/01/01"),
-        Data.initTime("12:42:09.812"),
-        Data.initDateTime("2021/01/01-12:42:09.812"),
+        Data.initDate(2021, 1, 1),
+        Data.initTime(12, 42, 9, 812),
+        Data.initDateTime(2021, 1, 1, 12, 42, 9, 812),
     };
 
     // 3. Create a DataWriter
