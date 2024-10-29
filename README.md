@@ -4,7 +4,7 @@ ZipponData is a library developped in the context of [ZipponDB](https://github.c
 
 The library intent to create a simple way to store and parse data from a file in the most efficient and fast way possible. 
 
-There is 8 data type available in ZipponData:
+There is 6 data type available in ZipponData:
 
 | Type | Zig type | Bytes in file |
 | --- | --- | --- |
@@ -13,9 +13,9 @@ There is 8 data type available in ZipponData:
 | bool | bool | 1 |
 | str | []u8 | 4 + len |
 | uuid | [16]u8 | 16 |
-| date | custom | 4 |
-| time | custom | 4 |
-| datetime | custom | 8 |
+| unix | u64 | 8 |
+
+Each type have its array equivalent.
 
 ## Quickstart
 
@@ -49,9 +49,7 @@ pub fn main() !void {
         Data.initInt(-5),
         Data.initStr("Hello world"),
         Data.initBool(true),
-        Data.initDate(2021, 1, 1),
-        Data.initTime(12, 42, 9, 812),
-        Data.initDateTime(2021, 1, 1, 12, 42, 9, 812),
+        Data.initUnix(2021),
     };
 
     // 3. Create a DataWriter
@@ -76,9 +74,7 @@ pub fn main() !void {
         .Int,
         .Str,
         .Bool,
-        .Date,
-        .Time,
-        .DateTime,
+        .Unix,
     };
 
     // 6. Create a DataIterator
@@ -98,21 +94,71 @@ pub fn main() !void {
 
 ***Note: The dir can be null and it will use cwd.***
 
+# Array
+
+All data type have an array equivalent. To use an array, you need to first encode it using `allocEncodArray` before writing it. 
+This use an allocator so you need to free what it return.
+
+When read, an array is just the raw bytes. To get the data itself, you need to create an `ArrayIterator`. Here an example:
+
+```zig
+pub fn main() !void {
+    const allocator = std.testing.allocator;
+
+    try std.fs.cwd().makeDir("array_tmp");
+    const dir = try std.fs.cwd().openDir("array_tmp", .{});
+
+    const int_array = [4]i32{ 32, 11, 15, 99 };
+
+    const data = [_]Data{
+        Data.initIntArray(try allocEncodArray.Int(allocator, &int_array)), // Encode
+    };
+    defer allocator.free(data[0].IntArray);
+
+    try createFile("test", dir);
+
+    var dwriter = try DataWriter.init("test", dir);
+    defer dwriter.deinit();
+    try dwriter.write(&data);
+    try dwriter.flush();
+
+    const schema = &[_]DType{
+        .IntArray,
+    };
+    var iter = try DataIterator.init(allocator, "test", dir, schema);
+    defer iter.deinit();
+
+    var i: usize = 0;
+    if (try iter.next()) |row| {
+        var array_iter = ArrayIterator.init(&row[0]); // Sub array iterator
+        while (array_iter.next()) |d| {
+            try std.testing.expectEqual(int_array[i], d.Int);
+            i += 1;
+        }
+    } else {
+        return error.TestUnexpectedNull;
+    }
+
+    try deleteFile("test", dir);
+    try std.fs.cwd().deleteDir("array_tmp");
+} 
+```
+
 # Benchmark
 
 Done on a AMD Ryzen 7 7800X3D with a Samsung SSD 980 PRO 2TB (up to 7,000/5,100MB/s for read/write speed).
 
 | Rows | Write Time (ms) | Average Write Time (μs) | Read Time (ms) | Average Read Time (μs) | File Size (kB) |
 | --- | --- | --- | --- | --- | --- |
-| 1         | 0.01      | 13.63 | 0.01      | 13.41 | 0.048 |
-| 10        | 0.01      | 1.69  | 0.02      | 1.85  | 0.48  |
-| 100       | 0.04      | 0.49  | 0.07      | 0.67  | 4.8   |
-| 1000      | 0.38      | 0.38  | 0.64      | 0.64  | 48    |
-| 10000     | 3.66      | 0.37  | 5.69      | 0.57  | 480   |
-| 100000    | 36.39     | 0.36  | 57.35     | 0.57  | 4800  |
-| 1000000   | 361.41    | 0.36  | 566.12    | 0.57  | 48000 |
+| 1             | 0.01      | 13.63 | 0.025     | 25.0  | 0.04      |
+| 10            | 0.01      | 1.69  | 0.03      | 3.28  | 0.4       |
+| 100           | 0.04      | 0.49  | 0.07      | 0.67  | 4.0       |
+| 1_000         | 0.36      | 0.36  | 0.48      | 0.48  | 40        |
+| 10_000        | 3.42      | 0.34  | 4.67      | 0.47  | 400       |
+| 100_000       | 36.39     | 0.36  | 48.00     | 0.49  | 4_000     |
+| 1_000_000     | 361.41    | 0.36  | 481.00    | 0.48  | 40_000    |
 
-TODO: Benchmark on my laptop and maybe on some cloud VM.
+TODO: Update number to use Unix one. Benchmark on my laptop and maybe on some cloud VM.
 
 Data use:
 ```zig
@@ -122,9 +168,7 @@ const schema = &[_]DType{
     .Int,
     .Str,
     .Bool,
-    .Date,
-    .Time,
-    .DateTime,
+    .Unix,
 };
 
 const data = &[_]Data{
@@ -133,9 +177,7 @@ const data = &[_]Data{
     Data.initInt(-5),
     Data.initStr("Hello world"),
     Data.initBool(true),
-    Data.initDate(2021, 1, 1),
-    Data.initTime(12, 42, 9, 812),
-    Data.initDateTime(2021, 1, 1, 12, 42, 9, 812),
+    Data.initUnix(2021),
 };
 ```
 
@@ -161,7 +203,7 @@ Here what my complete `build.zig.zon` is for my project ZipponDB:
     .dependencies = .{
         .ZipponData = .{
             .url = "git+https://github.com/MrBounty/ZipponData",
-            //the correct hash will be suggested by zig},        },
+            //the correct hash will be suggested by zig}, 
     },
     .paths = .{
         "",
