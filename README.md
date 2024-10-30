@@ -130,11 +130,13 @@ pub fn main() !void {
 
     var i: usize = 0;
     if (try iter.next()) |row| {
+
         var array_iter = ArrayIterator.init(&row[0]); // Sub array iterator
         while (array_iter.next()) |d| {
             try std.testing.expectEqual(int_array[i], d.Int);
             i += 1;
         }
+
     } else {
         return error.TestUnexpectedNull;
     }

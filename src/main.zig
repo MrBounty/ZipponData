@@ -27,7 +27,7 @@ pub const DType = enum {
 
     // I dont really like that there is a sperate function but ok
     // I had to do that so I can pass a second argument
-    pub fn readStr(_: DType, reader: anytype, str_index: *usize) !Data {
+    fn readStr(_: DType, reader: anytype, str_index: *usize) !Data {
         // Read the length of the string
         var len_buffer: [4]u8 = undefined;
         _ = try reader.readAtLeast(len_buffer[0..], @sizeOf(u32));
@@ -44,7 +44,7 @@ pub const DType = enum {
         return data;
     }
 
-    pub fn readArray(self: DType, reader: anytype, array_index: *usize) !Data {
+    fn readArray(self: DType, reader: anytype, array_index: *usize) !Data {
         // First 8 byte of an array is the number of u8 that take this array
         // This speed up the reading and allow str array easely
         var len_buffer: [8]u8 = undefined;
@@ -73,7 +73,7 @@ pub const DType = enum {
         };
     }
 
-    pub fn read(self: DType, reader: anytype) !Data {
+    fn read(self: DType, reader: anytype) !Data {
         switch (self) {
             .Int => {
                 var buffer: [@sizeOf(i32)]u8 = undefined;
@@ -140,7 +140,7 @@ pub const Data = union(DType) {
     }
 
     /// Write the value in bytes
-    pub fn write(self: Data, writer: anytype) !void {
+    fn write(self: Data, writer: anytype) !void {
         switch (self) {
             .Str => |v| {
                 const len = @as(u32, @intCast(v.len));
@@ -326,6 +326,9 @@ pub const allocEncodArray = struct {
     }
 };
 
+/// This take the name of a file and a schema and return an iterator.
+/// You can then use it in a while loop and it will yeild []Data type.
+/// One for each write. This is basically like a row in a table.
 pub const DataIterator = struct {
     allocator: std.mem.Allocator,
     file: std.fs.File,
@@ -383,6 +386,8 @@ pub const DataIterator = struct {
     }
 };
 
+/// When using DataIterator, if one Data is an array (like IntArray). You need to use that to create a sub iterator that return the Data inside the array.
+/// This is mainly for performance reason as you only iterate an array if needed, otherwise it is just a big blob of u8, like a str
 pub const ArrayIterator = struct {
     data: *Data,
     end: usize,
@@ -442,6 +447,9 @@ pub const ArrayIterator = struct {
     }
 };
 
+/// A data writer to write into a file. I use a struct so I can use a buffer and improve perf
+/// I added a seperated flush method, to not flush at each write. Otherwise it is very long
+/// Performance concern once again.
 pub const DataWriter = struct {
     file: std.fs.File,
     writer: std.io.BufferedWriter(4096, std.fs.File.Writer),
@@ -470,21 +478,29 @@ pub const DataWriter = struct {
     }
 };
 
+/// Create a new data file that can then be use by the DataWriter
 pub fn createFile(name: []const u8, dir: ?std.fs.Dir) !void {
     const d = dir orelse std.fs.cwd();
     const file = try d.createFile(name, .{});
     defer file.close();
 }
 
+/// Self explainatory.
 pub fn deleteFile(name: []const u8, dir: ?std.fs.Dir) !void {
     const d = dir orelse std.fs.cwd();
     try d.deleteFile(name);
 }
 
+/// Just to keep a similar API
 pub fn statFile(name: []const u8, dir: ?std.fs.Dir) !std.fs.File.Stat {
     const d = dir orelse std.fs.cwd();
     return d.statFile(name);
 }
+
+// I have almost more lines of test than the real stuff x)
+// But I think everything is tested to be fair, so good stuff
+// It also write benchmark so you can benchmark on your own hardware
+// The data write and read is not really representative of real worl tho
 
 test "Array Iterators" {
     const allocator = std.testing.allocator;
