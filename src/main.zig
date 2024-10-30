@@ -1,6 +1,8 @@
 const std = @import("std");
 
 // Maybe make buffer infinite with arrayList, but this is faster I think
+// Maybe give the option ? Like 2 kind of reader ? One with an arrayList as arg
+// I like this, I think I will do it. But later, at least I can see a way to keep the same API and use ArrayList as main buffer
 
 const STRING_BUFFER_LENGTH = 1024 * 64 * 64; // Around 4.2Mbyte
 var string_buffer: [STRING_BUFFER_LENGTH]u8 = undefined;
@@ -66,6 +68,7 @@ pub const DType = enum {
             .BoolArray => Data{ .BoolArray = array_buffer[origin..end] },
             .UUIDArray => Data{ .UUIDArray = array_buffer[origin..end] },
             .UnixArray => Data{ .UnixArray = array_buffer[origin..end] },
+            .StrArray => Data{ .StrArray = array_buffer[origin..end] },
             else => unreachable,
         };
     }
@@ -150,7 +153,7 @@ pub const Data = union(DType) {
             .Bool => |v| try writer.writeAll(std.mem.asBytes(&v)),
             .Unix => |v| try writer.writeAll(std.mem.asBytes(&v)),
 
-            .StrArray => unreachable,
+            .StrArray => |v| try writer.writeAll(v),
             .UUIDArray => |v| try writer.writeAll(v),
             .IntArray => |v| try writer.writeAll(v),
             .FloatArray => |v| try writer.writeAll(v),
@@ -209,12 +212,22 @@ pub const Data = union(DType) {
 };
 
 // I know, I know I use @sizeOf too much, but I like it. Allow me to understand what it represent
+
+/// Take an array of zig type and return an encoded version to use with Data.initType
+/// Like that: Data.initIntArray(try allocEncodArray.Int(my_array))
+/// Don't forget to free it! allocator.free(data.IntArray)
 pub const allocEncodArray = struct {
     pub fn Int(allocator: std.mem.Allocator, items: []const i32) ![]const u8 {
+        // Create a buffer of the right size
         var buffer = try allocator.alloc(u8, @sizeOf(u64) + @sizeOf(i32) * items.len);
+
+        // Ge the len use by the array in bytes, array len not included (The first 8 bytes)
         const items_len: u64 = items.len * @sizeOf(i32);
+
+        // Write the first 8 bytes as the number of items in the array
         @memcpy(buffer[0..@sizeOf(u64)], std.mem.asBytes(&items_len));
 
+        // Write all value in the array
         var start: usize = @sizeOf(u64);
         for (items) |item| {
             const end: usize = start + @sizeOf(i32);
@@ -284,12 +297,39 @@ pub const allocEncodArray = struct {
 
         return buffer;
     }
+
+    pub fn Str(allocator: std.mem.Allocator, items: []const []const u8) ![]const u8 {
+        var total_len: usize = @sizeOf(u64);
+        for (items) |item| {
+            total_len += @sizeOf(u64) + @sizeOf(u8) * item.len;
+        }
+
+        var buffer = try allocator.alloc(u8, total_len);
+
+        // Write the total number of bytes used by this array as the first 8 bytes. Those first 8 are not included
+        @memcpy(buffer[0..@sizeOf(u64)], std.mem.asBytes(&(total_len - @sizeOf(u64))));
+
+        // Write the rest, the number of u8 then the array itself, repeat
+        var start: usize = @sizeOf(u64);
+        var end: usize = 0;
+        for (items) |item| {
+            // First write the len of the str
+            end = start + @sizeOf(u64);
+            @memcpy(buffer[start..end], std.mem.asBytes(&item.len));
+
+            end += item.len;
+            @memcpy(buffer[(start + @sizeOf(u64))..end], item);
+            start = end;
+        }
+
+        return buffer;
+    }
 };
 
 pub const DataIterator = struct {
     allocator: std.mem.Allocator,
     file: std.fs.File,
-    reader: std.io.BufferedReader(4096, std.fs.File.Reader),
+    reader: std.io.BufferedReader(4096, std.fs.File.Reader), // Use ArrayList reader maybe ?
 
     schema: []const DType,
     data: []Data,
@@ -391,7 +431,12 @@ pub const ArrayIterator = struct {
                 self.index += @sizeOf(u64);
                 return Data{ .Unix = std.mem.bytesToValue(u64, buffer[(self.index - @sizeOf(u64))..self.index]) };
             },
-            .StrArray => unreachable, // TODO:
+            .StrArray => |buffer| {
+                // Read first 8 bytes as len, copy it into the buffer then return the slice
+                const len = @as(usize, @intCast(std.mem.bytesToValue(u64, buffer[self.index..(self.index + @sizeOf(u64))])));
+                self.index += @sizeOf(u64) + len;
+                return Data{ .Str = buffer[(self.index - len)..self.index] };
+            },
             else => unreachable,
         }
     }
@@ -462,6 +507,7 @@ test "Array Iterators" {
         [_]u8{3} ** 16,
     };
     const unix_array = [_]u64{ 1623456789, 1623456790, 1623456791, 1623456792 };
+    const str_array = [_][]const u8{ "Hello", " world" };
 
     const data = [_]Data{
         Data.initIntArray(try allocEncodArray.Int(allocator, &int_array)),
@@ -469,6 +515,7 @@ test "Array Iterators" {
         Data.initBoolArray(try allocEncodArray.Bool(allocator, &bool_array)),
         Data.initUUIDArray(try allocEncodArray.UUID(allocator, &uuid_array)),
         Data.initUnixArray(try allocEncodArray.Unix(allocator, &unix_array)),
+        Data.initStrArray(try allocEncodArray.Str(allocator, &str_array)),
     };
     defer {
         allocator.free(data[0].IntArray);
@@ -476,6 +523,7 @@ test "Array Iterators" {
         allocator.free(data[2].BoolArray);
         allocator.free(data[3].UUIDArray);
         allocator.free(data[4].UnixArray);
+        allocator.free(data[5].StrArray);
     }
 
     // Write data to file
@@ -486,7 +534,7 @@ test "Array Iterators" {
     try dwriter.flush();
 
     // Read and verify data
-    const schema = &[_]DType{ .IntArray, .FloatArray, .BoolArray, .UUIDArray, .UnixArray };
+    const schema = &[_]DType{ .IntArray, .FloatArray, .BoolArray, .UUIDArray, .UnixArray, .StrArray };
     var iter = try DataIterator.init(allocator, "test_arrays", dir, schema);
     defer iter.deinit();
 
@@ -544,6 +592,17 @@ test "Array Iterators" {
                 i += 1;
             }
             try std.testing.expectEqual(unix_array.len, i);
+        }
+
+        // Str Array
+        {
+            var array_iter = try ArrayIterator.init(&row[5]);
+            var i: usize = 0;
+            while (array_iter.next()) |d| {
+                try std.testing.expectEqualStrings(str_array[i], d.Str);
+                i += 1;
+            }
+            try std.testing.expectEqual(str_array.len, i);
         }
     } else {
         return error.TestUnexpectedNull;
