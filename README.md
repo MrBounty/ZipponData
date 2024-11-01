@@ -236,6 +236,6 @@ I will give an example of how I do it.
 I don't plan do update this but it will depend if my other project need it.
 
 - Functions to update files
-- Add a header with the data type at the beguinning of the file so no need to make a schema and I can check everytime I write id it's in the good format 
+- Add a header with the data type at the beginning of the file so no need to make a schema and I can check everytime I write if it's in the good format 
 - More type
 - Multi threading
