@@ -389,12 +389,12 @@ pub const DataIterator = struct {
 /// When using DataIterator, if one Data is an array (like IntArray). You need to use that to create a sub iterator that return the Data inside the array.
 /// This is mainly for performance reason as you only iterate an array if needed, otherwise it is just a big blob of u8, like a str
 pub const ArrayIterator = struct {
-    data: *Data,
+    data: Data,
     end: usize,
     index: usize,
 
-    pub fn init(data: *Data) !ArrayIterator {
-        const len = switch (data.*) {
+    pub fn init(data: Data) !ArrayIterator {
+        const len = switch (data) {
             .IntArray,
             .FloatArray,
             .BoolArray,
@@ -415,7 +415,7 @@ pub const ArrayIterator = struct {
     pub fn next(self: *ArrayIterator) ?Data {
         if (self.index >= self.end) return null;
 
-        switch (self.data.*) {
+        switch (self.data) {
             .IntArray => |buffer| {
                 self.index += @sizeOf(i32);
                 return Data{ .Int = std.mem.bytesToValue(i32, buffer[(self.index - @sizeOf(i32))..self.index]) };
@@ -557,7 +557,7 @@ test "Array Iterators" {
     if (try iter.next()) |row| {
         // Int Array
         {
-            var array_iter = try ArrayIterator.init(&row[0]);
+            var array_iter = try ArrayIterator.init(row[0]);
             var i: usize = 0;
             while (array_iter.next()) |d| {
                 try std.testing.expectEqual(int_array[i], d.Int);
@@ -568,7 +568,7 @@ test "Array Iterators" {
 
         // Float Array
         {
-            var array_iter = try ArrayIterator.init(&row[1]);
+            var array_iter = try ArrayIterator.init(row[1]);
             var i: usize = 0;
             while (array_iter.next()) |d| {
                 try std.testing.expectApproxEqAbs(float_array[i], d.Float, 0.0001);
@@ -579,7 +579,7 @@ test "Array Iterators" {
 
         // Bool Array
         {
-            var array_iter = try ArrayIterator.init(&row[2]);
+            var array_iter = try ArrayIterator.init(row[2]);
             var i: usize = 0;
             while (array_iter.next()) |d| {
                 try std.testing.expectEqual(bool_array[i], d.Bool);
@@ -590,7 +590,7 @@ test "Array Iterators" {
 
         // UUID Array
         {
-            var array_iter = try ArrayIterator.init(&row[3]);
+            var array_iter = try ArrayIterator.init(row[3]);
             var i: usize = 0;
             while (array_iter.next()) |d| {
                 try std.testing.expectEqualSlices(u8, &uuid_array[i], &d.UUID);
@@ -601,7 +601,7 @@ test "Array Iterators" {
 
         // Unix Array
         {
-            var array_iter = try ArrayIterator.init(&row[4]);
+            var array_iter = try ArrayIterator.init(row[4]);
             var i: usize = 0;
             while (array_iter.next()) |d| {
                 try std.testing.expectEqual(unix_array[i], d.Unix);
@@ -612,7 +612,7 @@ test "Array Iterators" {
 
         // Str Array
         {
-            var array_iter = try ArrayIterator.init(&row[5]);
+            var array_iter = try ArrayIterator.init(row[5]);
             var i: usize = 0;
             while (array_iter.next()) |d| {
                 try std.testing.expectEqualStrings(str_array[i], d.Str);
