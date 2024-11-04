@@ -68,6 +68,7 @@ pub fn main() !void {
     // 5. Create a schema
     // A schema is how  the iterator will parse the file. 
     // If you are wrong here, it will return wrong/random data
+    // And most likely an error when iterating in the while loop
     const schema = &[_]DType{
         .Int,
         .Float,
@@ -83,7 +84,7 @@ pub fn main() !void {
 
     // 7. Iterate over data
     while (try iter.next()) |row| {
-        std.debug.print("Row {d}: {any}\n", .{ row });
+        std.debug.print("Row: {any}\n", .{ row });
     }
 
     // 8. Delete the file (Optional ofc)
@@ -96,7 +97,7 @@ pub fn main() !void {
 
 # Array
 
-All data type have an array equivalent. To use an array, you need to first encode it using `allocEncodArray` before writing it. 
+All data type have an array equivalent. To write an array, you need to first encode it using `allocEncodArray` before writing it. 
 This use an allocator so you need to free what it return.
 
 When read, an array is just the raw bytes. To get the data itself, you need to create an `ArrayIterator`. Here an example:
@@ -105,40 +106,48 @@ When read, an array is just the raw bytes. To get the data itself, you need to c
 pub fn main() !void {
     const allocator = std.testing.allocator;
 
+    // 0. Make a temporary directory
     try std.fs.cwd().makeDir("array_tmp");
     const dir = try std.fs.cwd().openDir("array_tmp", .{});
 
-    const int_array = [4]i32{ 32, 11, 15, 99 };
+    // 1. Create a file
+    try createFile("test", dir);
 
+    // 2. Create and encode some Data
+    const int_array = [4]i32{ 32, 11, 15, 99 };
     const data = [_]Data{
         Data.initIntArray(try allocEncodArray.Int(allocator, &int_array)), // Encode
     };
-    defer allocator.free(data[0].IntArray);
+    defer allocator.free(data[0].IntArray); // DOnt forget to free it
 
-    try createFile("test", dir);
-
+    // 3. Create a DataWriter
     var dwriter = try DataWriter.init("test", dir);
     defer dwriter.deinit();
+
+    // 4. Write some data
     try dwriter.write(&data);
     try dwriter.flush();
 
+    // 5. Create a schema
     const schema = &[_]DType{
         .IntArray,
     };
+
+    // 6. Create a DataIterator
     var iter = try DataIterator.init(allocator, "test", dir, schema);
     defer iter.deinit();
 
+    // 7. Iterate over data
     var i: usize = 0;
     if (try iter.next()) |row| {
 
+        // 8. Iterate over array
         var array_iter = ArrayIterator.init(&row[0]); // Sub array iterator
         while (array_iter.next()) |d| {
             try std.testing.expectEqual(int_array[i], d.Int);
             i += 1;
         }
 
-    } else {
-        return error.TestUnexpectedNull;
     }
 
     try deleteFile("test", dir);
