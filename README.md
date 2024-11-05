@@ -234,11 +234,43 @@ const zid = @import("ZipponData");
 zid.createFile("Hello.zid", null);
 ```
 
-## What you can't do
+# Reference
 
-You can't update the file. You gonna need to implement that yourself. The easier way (and only I know), is to parse the entier file and write it into another.
 
-I will give an example of how I do it.
+
+# What you can't do
+
+You can't update files. You gonna need to implement that yourself. The easier way (and only I know), is to parse the entire file and write it into another.
+
+Here an example that evaluate all struct using a `Filter` and write only struct that are false. (A filter can be like `age > 20`, if the member `age` of the struct is `> 20`, it is true):
+```zig
+pub fn delete(file_name: []const u8, dir: std.fs.Dir, filter: Filter) !void {
+    // 1. Create the iterator of the current file
+    var iter = try zid.DataIterator.init(self.allocator, file_name, dir, sstruct.zid_schema);
+    defer iter.deinit();
+
+    // 2. Create a new file
+    const new_path_buff = try std.fmt.allocPrint(self.allocator, "{s}.new", .{file_name});
+    defer self.allocator.free(new_path_buff);
+    try zid.createFile(new_path_buff, dir);
+
+    // 3. Create a writer of the new data
+    var new_writer = try zid.DataWriter.init(new_path_buff, dir);
+    defer new_writer.deinit();
+
+    // 4. For all struct, evaluate and write to new file if false
+    while (try iter.next()) |row| {
+        if (!filter.evaluate(row)) {
+            try new_writer.write(row);
+        }
+    }
+
+    // 5. Flush, delete old file and rename new file to previous file
+    try new_writer.flush();
+    try dir.deleteFile(path_buff);
+    try dir.rename(new_path_buff, path_buff);
+}
+```
 
 # Potential update
 
