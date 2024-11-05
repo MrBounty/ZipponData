@@ -157,7 +157,7 @@ pub fn main() !void {
 
 # Benchmark
 
-Done on a AMD Ryzen 7 7800X3D with a Samsung SSD 980 PRO 2TB (up to 7,000/5,100MB/s for read/write speed).
+Done on a AMD Ryzen 7 7800X3D with a Samsung SSD 980 PRO 2TB (up to 7,000/5,100MB/s for read/write speed) on one thread.
 
 | Rows | Write Time (ms) | Average Write Time (μs) | Read Time (ms) | Average Read Time (μs) | File Size (kB) |
 | --- | --- | --- | --- | --- | --- |
@@ -192,8 +192,7 @@ const data = &[_]Data{
 };
 ```
 
-I am happy with the result. I plan to use it in my database ZipponDB and to limit each file size to around 5-10MB, and then use one thread per file.
-So it should be fairly fast.
+***Note: You can check Benchmark.md in ZipponDB to see performance using multi-threading. Was able to parse 1_000_000 users in less than 100ms***
 
 # Importing the package
 
@@ -233,10 +232,6 @@ And you can now import it like std in your project:
 const zid = @import("ZipponData");
 zid.createFile("Hello.zid", null);
 ```
-
-# Reference
-
-
 
 # What you can't do
 
